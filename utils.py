@@ -38,7 +38,8 @@ def read_from_csv(ratings_csv, movies_csv, tables=4, d=8):
         for movie_id, rating in user_movies.items():
             mat[user_zip_map[user_id], movie_zip_map[movie_id]] = rating
 
-    hashes = [np.random.uniform(-1, 1, (d,)) for _ in range(tables)]
+    _, cols = mat.shape
+    hashes = [np.random.uniform(-1, 1, (d, cols)) for _ in range(tables)]
 
     return mat, new_movies, hashes
 
