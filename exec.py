@@ -26,7 +26,7 @@ if __name__ == '__main__':
     user_vec = np.random.randint(0, 6, (items_count,))
 
     print('Recommend for %s...' % user_vec)
-    recommendations = ali.recommend(user_vec, apply_for_subscribers=True)
+    recommendations = ali.recommend(user_vec)
 
     # 打印预测结果
     print(recommendations)
