@@ -208,7 +208,7 @@ class Platform:
         for i, user_vec in enumerate(collection):
             effective_user_vec = user_vec[effective_index]
             indexes = np.where(effective_user_vec > 0)
-            effective_index = set([i.item() for i in indexes])
+            effective_index = set([int(i) for i in indexes])
             effective_user_vec = effective_user_vec[effective_user_vec > 0]
             encrypted_user_vec = [vec for i, vec in enumerate(encrypted_user_vec) if i in effective_index]
             similarities[i] = self.calc_similarity_with_encrypted_data(
