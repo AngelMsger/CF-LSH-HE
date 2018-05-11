@@ -1,5 +1,5 @@
 # CF-LSH-HE
-*开发中*
+*开发版*
 
 [English](README.md)
 

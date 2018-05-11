@@ -1,5 +1,5 @@
 # CF-LSH-HE
-*Under Development*
+*Alpha Version*
 
 [中文](README_zh-CN.md)
 
