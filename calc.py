@@ -17,26 +17,26 @@ class Platform:
     护。但由于加解密带来的开销，会使得开启多平台参与计算时推荐性能的显著下降。
     """
 
-    def __init__(self, data=np.array([]), hashes=None, tables=4, d=8, k=None, subscribers=None) -> None:
+    def __init__(self, name, hashes, data=np.array([]), tables=4, d=8, k=None, subscribers=None) -> None:
         """
         构造计算平台
+        :param name: 平台ID
+        :param hashes: 局部敏感哈希函数组所依赖的矩阵组，不同平台必须传入相同矩阵组才能正常参与协同工作
         :param data: 平台的数据矩阵
-        :param hashes: 局部敏感哈希函数组所依赖的矩阵
         :param tables: 使用的哈希表数量
         :param d: 局部敏感哈希映射后的向量维度
         :param k: 平台在每次产生推荐时来自自身的结果容量
         :param subscribers: 协助计算平台列表
         """
 
+        self.id = name
         self.data = data
         _, cols = data.shape
-        if hashes is None:
-            hashes = [np.random.uniform(-1, 1, (d, cols)) for _ in range(tables)]
-        else:
-            assert len(hashes) > 0
-            d = len(hashes[0])
-            tables = len(hashes)
+
+        assert len(hashes) > 0
         self.hashes = hashes
+        d = len(hashes[0])
+        tables = len(hashes)
 
         if k is None:
             k = len(data)
@@ -108,6 +108,7 @@ class Platform:
         :param platform: 协助计算平台
         :return: 无
         """
+        assert self.hashes == platform.hashes
         self.subscribers.append(platform)
 
     def calc_similarity_for_subscriber(self, r_num, r_den):
@@ -119,14 +120,14 @@ class Platform:
         """
         return self._private_key.decrypt(r_num) / self._private_key.decrypt(r_den)
 
-    def get_similar_collection(self, user_vec):
+    def get_similar_collection(self, hash_table_indexes):
         """
         从哈希表组中获取可能相似的所有用户参与后续计算
-        :param user_vec:
+        :param hash_table_indexes:
         :return:
         """
         result = []
-        for index in self.find(user_vec):
+        for index in hash_table_indexes:
             result.extend(self.hash_tables[index.table_index][index.bucket_index])
         return np.array(result)
 
@@ -137,13 +138,55 @@ class Platform:
         :param apply_for_subscribers: 请求其他平台参与推荐计算
         :return: 预测并填充后的用户评分向量
         """
-        pass
+        user_vec = np.asarray(user_vec)
+        hash_table_indexes = self.find(user_vec)
+        collection = self.get_similar_collection(hash_table_indexes)
+        users_count, items_count = collection.shape
 
-    def participate(self, encrypted_user_vec, already_calc=set()):
+        similarities = np.empty((users_count,))
+        for i in range(users_count):
+            evaluated = np.logical_and(user_vec > 0, collection[i] > 0)
+            similarities[i] = self.calc_similarity(user_vec[evaluated], collection[i][evaluated])
+        most_similar_indexes = collection.argsort()[0 - self.k:]
+
+        sum_of_similarity, sum_of_ratings_with_weights = 0, np.zeros((items_count,))
+        for index in most_similar_indexes:
+            sum_of_similarity += similarities[index]
+            sum_of_ratings_with_weights += similarities[index] * collection[index]
+
+        if apply_for_subscribers:
+            effective_index = user_vec > 0
+            effective_user_vec = user_vec[effective_index]
+            encrypted_user_vec = [self.public_key.encrypt(i) for i in effective_user_vec]
+            for platform in self.subscribers:
+                x, y = platform.participate(encrypted_user_vec, effective_index, hash_table_indexes, self)
+                sum_of_ratings_with_weights += x
+                sum_of_similarity += y
+
+        return sum_of_ratings_with_weights, sum_of_similarity
+
+    def get_effective_encrypted_user_vec(self, encrypted_user_vec):
+        user_vec = np.array([self._private_key.decrypt(i) for i in encrypted_user_vec])
+        ym = user_vec - user_vec.mean()
+        sqrt_sum_of_squares = np.sqrt(np.add.reduce(ym ** 2))
+        return EncryptedUserVec(ym=self.public_key.encrypt(ym),
+                                sqrt_sum_of_squares=self.public_key.encrypt(sqrt_sum_of_squares))
+
+    def participate(self, encrypted_user_vec, effective_index, hash_table_indexes, platform):
         """
         参与推荐计算
         :param encrypted_user_vec: 加密的用户评分数据，内含请求计算平台的公钥
-        :param already_calc: 已经参与计算的平台集合，防止同一平台重复参与本轮计算
+        :param effective_index: 传入的有效维度对应的索引，用来告知参与平台仅需考虑用户向量的这些维度
+        :param hash_table_indexes: 用户对应的哈希索引，不涉及用户数据本身，不会暴露数据隐私
+        :param platform: 请求计算的平台
         :return: 使用请求计算平台公钥加密后的推荐计算结果
         """
-        pass
+        collection = self.get_similar_collection(hash_table_indexes)
+        similarities = np.empty((len(collection),))
+        for i, user_vec in enumerate(collection):
+            effective_user_vec = user_vec[effective_index]
+            effective_index = set(np.where(effective_user_vec > 0))
+            effective_user_vec = effective_user_vec[effective_user_vec > 0]
+            encrypted_user_vec = [vec for i, vec in enumerate(encrypted_user_vec) if i in effective_index]
+            similarities[i] = self.calc_similarity_with_encrypted_data(
+                effective_user_vec, self.get_effective_encrypted_user_vec(encrypted_user_vec), platform)
