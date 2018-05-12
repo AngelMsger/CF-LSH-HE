@@ -50,7 +50,7 @@ class Platform:
         self.public_key, self._private_key = paillier.generate_paillier_keypair()
 
         table_size = int('1' * d, 2) + 1
-        self.hash_tables = [[[] for _ in range(table_size)] for _ in range(tables)]
+        self.hash_tables = [[set() for _ in range(table_size)] for _ in range(tables)]
         self.init_lsh()
 
     @staticmethod
@@ -100,9 +100,9 @@ class Platform:
         初始化LSH哈希表
         :return: 无
         """
-        for user_vec in self.data:
+        for i, user_vec in enumerate(self.data):
             for index in self.find(user_vec):
-                self.hash_tables[index.table_index][index.bucket_index].append(user_vec)
+                self.hash_tables[index.table_index][index.bucket_index].add(i)
 
     def append_subscriber(self, platform) -> None:
         """
@@ -128,10 +128,10 @@ class Platform:
         :param hash_table_indexes:
         :return:
         """
-        result = []
+        result = set()
         for index in hash_table_indexes:
-            result.extend(self.hash_tables[index.table_index][index.bucket_index])
-        return np.array(result)
+            result |= self.hash_tables[index.table_index][index.bucket_index]
+        return np.array([self.data[i] for i in result])
 
     @log_duration
     def recommend(self, user_vec, use_lsh=True, apply_for_subscribers=False):
