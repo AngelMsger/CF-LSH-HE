@@ -131,7 +131,7 @@ class Platform:
         result = set()
         for index in hash_table_indexes:
             result |= self.hash_tables[index.table_index][index.bucket_index]
-        return np.array([self.data[i] for i in result])
+        return np.array([self.data[i] for i in result]) if len(result) > 0 else None
 
     @log_duration
     def recommend(self, user_vec, use_lsh=True, apply_for_subscribers=False):
@@ -148,7 +148,10 @@ class Platform:
         if use_lsh:
             collection = self.get_similar_collection(hash_table_indexes)
         else:
-            collection = self.data
+            collection = self.data if len(self.data) > 0 else None
+
+        if collection is None:
+            return None
 
         users_count, items_count = collection.shape
 

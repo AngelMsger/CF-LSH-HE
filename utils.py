@@ -128,6 +128,18 @@ def read_with_cache(ratings_csv, movies_csv, tables=4, d=8, hdf5_filename='origi
     return ratings, movies, hashes, movie_origin_indexes
 
 
+def evaluate(x, y):
+    if x is not None and y is not None:
+        assert len(x) == len(y) != 0
+        x, y = np.asarray(x), np.asarray(y)
+        index = np.logical_and(x > 0, y > 0)
+        x, y = x[index], y[index]
+        sum_of_diff = np.add.reduce(np.abs(x - y))
+        return sum_of_diff / len(x)
+    else:
+        return 0
+
+
 def log_duration(func):
     """
     打印函数运行时间装饰器
