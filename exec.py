@@ -51,14 +51,14 @@ def test_lsh(collection, lsh_hashes, offset=64, step=64, test_count=64) -> None:
     plt.legend(['Using LSH', 'NOT Using SLH'])
     plt.xlabel('Size of DataSet')
     plt.ylabel('Time Cost (ms)')
-    plt.imsave(os.path.join('assets', 'effectiveness.png'))
+    plt.savefig(os.path.join('assets', 'effectiveness.png'))
 
     plt.plot(horizontal, errors_using_lsh.mean(axis=0), label='Using LSH')
     plt.plot(horizontal, errors_not_using_lsh.mean(axis=0), label='NOT Using LSH')
     plt.legend(['Using LSH', 'NOT Using SLH'])
     plt.xlabel('Size of DataSet')
     plt.ylabel('MAE')
-    plt.imsave(os.path.join('assets', 'mae.png'))
+    plt.savefig(os.path.join('assets', 'mae.png'))
 
 
 def test_he(collection, lsh_hashes) -> None:
