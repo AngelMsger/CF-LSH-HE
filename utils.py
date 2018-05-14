@@ -157,23 +157,6 @@ def evaluate(x, y):
         return 0
 
 
-def mean_1d(x, remove=0):
-    """
-    去除最值后取均值
-    :param x: 待求向量
-    :param remove: 去除极值数量
-    :return: 向量元素均值
-    """
-    assert remove > -1
-    if remove == 0:
-        return x.mean(axis=0)
-    else:
-        x_max = x.max()
-        x_min = x.min()
-        index = np.logical_or(x == x_max, x == x_min) == False
-        return mean_1d(x[index])
-
-
 def plot_and_save(x, ys, legends, x_label, y_label, figure_name) -> None:
     """
     绘制并存储折线图
@@ -185,6 +168,8 @@ def plot_and_save(x, ys, legends, x_label, y_label, figure_name) -> None:
     :param figure_name: 图标题
     :return: 无
     """
+    print(x)
+    print(ys)
     assert len(ys) == len(legends) > 0
     plt.figure()
     for i, y in enumerate(ys):

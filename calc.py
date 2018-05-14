@@ -177,6 +177,8 @@ class Platform:
 
         return sum_of_ratings_with_weights / sum_of_similarity
 
+    # TODO: INDEX STRATEGY UPDATE
+
     def get_effective_encrypted_user_vec(self, encrypted_user_vec):
         """
         为参与计算平台提供可以被计算的加密数据
