@@ -3,6 +3,7 @@ import os
 import warnings
 from csv import DictReader
 from datetime import datetime
+from random import randint, shuffle
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -184,6 +185,21 @@ def plot_and_save(x, ys, legends, x_label, y_label, figure_name) -> None:
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.savefig('%s.png' % os.path.join('assets', figure_name))
+
+
+def generate_random_user_vec(length):
+    """
+    生成模拟的随机用户评分向量
+    :param length: 向量长度
+    :return: 随机用户评分向量
+    """
+    user_vec = np.zeros((length,))
+    size = randint(24, 2048)
+    index = [i for i in range(length)]
+    shuffle(index)
+    for i in index[:size]:
+        user_vec[i] = randint(1, 6)
+    return user_vec
 
 
 def log_duration(func):

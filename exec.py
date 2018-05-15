@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 
 from calc import Platform
-from utils import read_with_cache, evaluate, plot_and_save
+from utils import read_with_cache, evaluate, generate_random_user_vec, plot_and_save
 
 __author__ = 'i@AngelMsger.Com'
 
@@ -29,7 +29,7 @@ def test_lsh(collection, lsh_hashes, offset=32, step=32, test_count=8) -> None:
 
     for i in range(test_count):
         print('%s...' % i)
-        user_vec = np.random.randint(0, 6, (items_size,))
+        user_vec = generate_random_user_vec(items_size)
         for j, value in enumerate(size_of_data_set):
             amazon = Platform('亚马逊', lsh_hashes, data=collection[:value])
             start = datetime.now()
@@ -80,7 +80,7 @@ def test_he(collection, lsh_hashes, test_count=64) -> None:
 
     for i in range(test_count):
         # 假设新到达一个用户，要求产生推荐结果
-        user_vec = np.random.randint(0, 6, (items_size,))
+        user_vec = generate_random_user_vec(items_size)
 
         start = datetime.now()
         result = ali.recommend(user_vec, apply_for_subscribers=True)
