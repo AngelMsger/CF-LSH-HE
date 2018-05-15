@@ -6,6 +6,7 @@ from datetime import datetime
 
 import numpy as np
 from matplotlib import pyplot as plt
+from sklearn.metrics import mean_absolute_error
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -130,12 +131,18 @@ def read_with_cache(ratings_csv, movies_csv, tables=4, d=8, hdf5_filename='origi
 
     ratings, movies, hashes, movie_origin_indexes = read_from_csv(ratings_csv, movies_csv, tables, d, size)
 
-    write_to_hdf5(hdf5_filename, ratings, movie_origin_indexes, hashes, {
+    option = {
         'ratings_csv': ratings_csv,
         'movies_csv': movies_csv,
-        'users_size': size[0],
-        'movies_size': size[1]
-    })
+    }
+
+    if size is not None:
+        option.update({
+            'users_size': size[0],
+            'movies_size': size[1]
+        })
+
+    write_to_hdf5(hdf5_filename, ratings, movie_origin_indexes, hashes, option)
     return ratings, movies, hashes, movie_origin_indexes
 
 
@@ -150,9 +157,7 @@ def evaluate(x, y):
         assert len(x) == len(y) != 0
         x, y = np.asarray(x), np.asarray(y)
         index = np.logical_and(x > 0, y > 0)
-        x, y = x[index], y[index]
-        sum_of_diff = np.add.reduce(np.abs(x - y))
-        return sum_of_diff / len(x)
+        return mean_absolute_error(x[index], y[index]) if np.count_nonzero(index) > 0 else 0
     else:
         return 0
 

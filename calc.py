@@ -1,4 +1,5 @@
 from collections import namedtuple
+from random import shuffle
 
 import numpy as np
 from phe import paillier
@@ -73,7 +74,9 @@ class Platform:
         :param platform: 请求计算的平台
         :return: 相似度计算结果
         """
-        assert len(user_vec) == len(encrypted_user_vec.ym) != 0
+        if len(user_vec) != len(encrypted_user_vec.ym) or len(user_vec) == 0:
+            return platform.public_key.encrypt(0)
+
         x = np.asarray(user_vec)
         xm = x - x.mean()
         r_num = np.dot(xm, encrypted_user_vec.ym)
@@ -120,7 +123,8 @@ class Platform:
         :param r_den: 计算参数
         :return: 最终计算结果
         """
-        return self._private_key.decrypt(r_num) / self._private_key.decrypt(r_den)
+        r_den = self._private_key.decrypt(r_den)
+        return self.public_key.encrypt(self._private_key.decrypt(r_num) / r_den if r_den != 0 else 0)
 
     def get_similar_collection(self, hash_table_indexes):
         """
@@ -142,6 +146,7 @@ class Platform:
         :param apply_for_subscribers: 请求其他平台参与推荐计算
         :return: 预测并填充后的用户评分向量
         """
+        print('%s recommending...' % self.id)
         user_vec = np.asarray(user_vec)
         hash_table_indexes = self.find(user_vec)
 
@@ -158,7 +163,8 @@ class Platform:
         similarities = np.empty((users_count,))
         for i in range(users_count):
             evaluated = np.logical_and(user_vec > 0, collection[i] > 0)
-            similarities[i] = self.calc_similarity(user_vec[evaluated], collection[i][evaluated])
+            similarities[i] = self.calc_similarity(user_vec[evaluated], collection[i][evaluated])\
+                if np.count_nonzero(evaluated) > 0 else 0
         most_similar_indexes = similarities.argsort()[0 - self.k:]
 
         sum_of_similarity, sum_of_ratings_with_weights = 0, np.zeros((items_count,))
@@ -172,12 +178,12 @@ class Platform:
             encrypted_user_vec = [self.public_key.encrypt(i.item()) for i in effective_user_vec]
             for platform in self.subscribers:
                 x, y = platform.participate(encrypted_user_vec, effective_index, hash_table_indexes, self)
-                sum_of_ratings_with_weights += np.array([self._private_key.decrypt(i) for i in x])
-                sum_of_similarity += self._private_key.decrypt(y)
+                if x is not None:
+                    print("adding %s's result..." % platform.id)
+                    sum_of_ratings_with_weights += np.array([self._private_key.decrypt(i) for i in x])
+                    sum_of_similarity += self._private_key.decrypt(y)
 
         return sum_of_ratings_with_weights / sum_of_similarity
-
-    # TODO: INDEX STRATEGY UPDATE
 
     def get_effective_encrypted_user_vec(self, encrypted_user_vec):
         """
@@ -188,42 +194,44 @@ class Platform:
         user_vec = np.array([self._private_key.decrypt(i) for i in encrypted_user_vec])
         ym = user_vec - user_vec.mean()
         sqrt_sum_of_squares = np.sqrt(np.add.reduce(ym ** 2))
-        return EncryptedUserVec(ym=self.public_key.encrypt(ym),
+        return EncryptedUserVec(ym=[self.public_key.encrypt(x) for x in ym],
                                 sqrt_sum_of_squares=self.public_key.encrypt(sqrt_sum_of_squares))
 
-    def encrypted_data_argsort(self, vector):
-        """
-        为参与计算平台提供加密数据排序后的索引
-        :param vector: 需要排序的加密数据向量
-        :return: 排序后的索引值
-        """
-        return np.array([self._private_key.decrypt(i) for i in vector]).argsort()
-
-    def participate(self, encrypted_user_vec, effective_index, hash_table_indexes, platform):
+    def participate(self, encrypted_user_vec, effective_indexes, hash_table_indexes, platform):
         """
         参与推荐计算
         :param encrypted_user_vec: 加密的用户评分数据，内含请求计算平台的公钥
-        :param effective_index: 传入的有效维度对应的索引，用来告知参与平台仅需考虑用户向量的这些维度
+        :param effective_indexes: 传入的有效维度对应的索引，用来告知参与平台仅需考虑用户向量的这些维度
         :param hash_table_indexes: 用户对应的哈希索引，不涉及用户数据本身，不会暴露数据隐私
         :param platform: 请求计算的平台
         :return: 使用请求计算平台公钥加密后的推荐计算结果
         """
+        print('%s participating...' % self.id)
         collection = self.get_similar_collection(hash_table_indexes)
-        similarities = np.empty((len(collection),))
+        if collection is None:
+            return None, None
+
+        similarities = [0 for _ in range(len(collection))]
         for i, user_vec in enumerate(collection):
-            effective_user_vec = user_vec[effective_index]
-            indexes = np.where(effective_user_vec > 0)
-            effective_index = set([int(i) for i in indexes])
+            effective_user_vec = user_vec[effective_indexes]
+            indexes = np.where(effective_user_vec > 0)[0]
+            effective_indexes_new = set([int(i) for i in indexes])
             effective_user_vec = effective_user_vec[effective_user_vec > 0]
-            encrypted_user_vec = [vec for i, vec in enumerate(encrypted_user_vec) if i in effective_index]
+            encrypted_user_vec = [rating for i, rating in enumerate(encrypted_user_vec) if i in effective_indexes_new]
+
+            print(len(effective_user_vec), len(encrypted_user_vec))
+
             similarities[i] = self.calc_similarity_with_encrypted_data(
-                effective_user_vec, self.get_effective_encrypted_user_vec(encrypted_user_vec), platform)
-        most_similar_indexes = platform.encrypted_data_argsort(similarities)[0 - self.k:]
+                effective_user_vec, platform.get_effective_encrypted_user_vec(encrypted_user_vec), platform)
+
+        value_with_index = [x for x in enumerate(similarities)]
+        shuffle(value_with_index)
+        most_similar_indexes = value_with_index[:self.k]
 
         _, items_count = self.data.shape
         sum_of_similarity, sum_of_ratings_with_weights = 0, [0 for _ in range(items_count)]
-        for index in most_similar_indexes:
-            sum_of_similarity += similarities[index]
-            for i, value in enumerate(collection[index]):
-                sum_of_ratings_with_weights[i] += similarities[index] * value
+        for i, similarity in most_similar_indexes:
+            sum_of_similarity += similarities[i]
+            for j, value in enumerate(collection[i]):
+                sum_of_ratings_with_weights[j] += similarity * value
         return sum_of_ratings_with_weights, sum_of_similarity

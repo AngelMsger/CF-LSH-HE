@@ -104,9 +104,9 @@ if __name__ == '__main__':
     ratings_csv = os.path.abspath(os.path.join('.', 'ml-latest-small', 'ratings.csv'))
     movies_csv = os.path.abspath(os.path.join('.', 'ml-latest-small', 'movies.csv'))
 
-    # ratings, _, hashes, _ = read_with_cache(ratings_csv, movies_csv)
-    # test_lsh(ratings, hashes)
+    ratings, _, hashes, _ = read_with_cache(ratings_csv, movies_csv)
+    test_lsh(ratings, hashes)
 
-    reduce_size = (16, 64)
-    ratings, _, hashes, _ = read_with_cache(ratings_csv, movies_csv, hdf5_filename='reduce.hdf5', size=reduce_size)
-    test_he(ratings[:reduce_size[0], :reduce_size[1]], hashes)
+    # reduce_size = (36, 256)
+    # ratings, _, hashes, _ = read_with_cache(ratings_csv, movies_csv, hdf5_filename='reduce.hdf5', size=reduce_size)
+    # test_he(ratings[:reduce_size[0], :reduce_size[1]], hashes)
