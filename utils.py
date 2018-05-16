@@ -14,7 +14,7 @@ with warnings.catch_warnings():
     import h5py
 
 
-def read_from_csv(ratings_csv, movies_csv, tables=4, d=8, size=None):
+def read_from_csv(ratings_csv, movies_csv, tables=8, d=64, size=None):
     """
     读取CSV数据集并生成局部敏感哈希依赖的哈希表
     :param ratings_csv: 评分记录文件位置
@@ -185,21 +185,6 @@ def plot_and_save(x, ys, legends, x_label, y_label, figure_name) -> None:
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.savefig('%s.png' % os.path.join('assets', figure_name))
-
-
-def generate_random_user_vec(length):
-    """
-    生成模拟的随机用户评分向量
-    :param length: 向量长度
-    :return: 随机用户评分向量
-    """
-    user_vec = np.zeros((length,))
-    size = randint(24, 2048)
-    index = [i for i in range(length)]
-    shuffle(index)
-    for i in index[:size]:
-        user_vec[i] = randint(1, 6)
-    return user_vec
 
 
 def log_duration(func):
